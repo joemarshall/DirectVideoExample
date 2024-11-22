@@ -14,6 +14,8 @@ parser = argparse.ArgumentParser(
                     
 parser.add_argument("device",nargs="+",help="One or more devices to build for, or 'all' to build everything. Supported devices ("+",".join([f"{x[1]}" for x in BUILD_PLUGINS.items()])+",all)")
 
+parser.add_argument("--ue-path","-ue",default="d:\\epic\\UE_5.3\\")
+
 args = parser.parse_args()
 
 
@@ -50,7 +52,7 @@ for enable_plugin,out_folder in enabled_build_plugins.items():
     print(f"Building for {enable_plugin}in Releases/{out_folder}")
     platform_folder = release_folder / out_folder
     platform_folder.mkdir(exist_ok=True)
-    subprocess.check_call(["d:\\epic\\UE_5.3\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
+    subprocess.check_call([f"{args.ue_path}\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
                     "-build","-stage","-package","-pak","-cook","-compressed","-configuration=Shipping","-archive", f"-archivedirectory={platform_folder}"  ],shell=True)
     
 project_file.write_text(orig_text)    
