@@ -1,6 +1,6 @@
 # Example Unreal project for DirectVideo plugin
 
-This loads a single 360 video and displays it. Currently set to build for Pico VR, but if you disable the Pico XR plugin it should build for standard Android devices.
+This loads a single 360 video and displays it, both in standard video playback via texture mode, and also in the experimental direct mesh renderer mode (pull a trigger on VR versions, or touch with two fingers on plain Android to switch between render modes).
 
 If you build it without the plugin installed on your engine, it will fall back to standard Android media player, and you will be able to see that Unreal can't play high resolution video at any decent framerate.
 
