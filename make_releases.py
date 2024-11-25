@@ -100,6 +100,10 @@ parser_build.add_argument("--install","-i",help="install to device after build",
 parser_build.add_argument("--run","-r",help="Run app after build",action="store_true")
 parser_build.add_argument("--grablog","-g",help="Run app and save log to log_<date>.txt",action="store_true")
 parser_build.add_argument("--logname","-l",help="Set log text file name")
+parser_build.add_argument("--sanitizer","-s",help="Set sanitizer",choices=["asan","ubsan","tsan"])
+validation_group = parser_build.add_mutually_exclusive_group()
+validation_group.add_argument("--validation",help="Do vulkan validation",action="store_true")
+validation_group.add_argument("--novalidation",help="Don't do vulkan validation",action="store_false")
 parser_release = subparsers.add_parser('release', help='Upload github release')
 
 parser_release.add_argument("version",help="version tag for release")
@@ -115,7 +119,15 @@ if args.command=="build" and args.development:
 else:
     release_folder = Path(__file__).parent / "Releases"
 
+
 def command_build(args):
+    use_validation_layer=False
+    if args.development:
+        use_validation_layer=args.novalidation
+    else:
+        use_validation_layer=args.validation
+        
+
     enabled_build_plugins=[]
     if "all" in args.device:
         enabled_build_plugins=BUILD_FLAVOURS
@@ -147,11 +159,11 @@ def command_build(args):
                 all_flavour.update_uproject(uproject_data,enabled)
                 all_flavour.update_defaultengine(defaultengine_data,enabled)
 
-            # do vulkan validation in dev builds
+            # do vulkan validation in dev builds (or if --validation is on)
             for plugin_info in uproject_data["Plugins"]:
                 name = plugin_info["Name"]
                 if name=="AndroidVulkanValidation":
-                    plugin_info["Enabled"]=args.development
+                    plugin_info["Enabled"]=use_validation_layer
 
             project_file.write_text(json.dumps(uproject_data,indent=4))
             defaultengine_file.write_text(defaultengine_data.reconstruct())
@@ -166,9 +178,11 @@ def command_build(args):
             else:
                 config="Shipping"
                 
-                
-            subprocess.check_call([f"{args.ue_path}\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
-                            "-build","-stage","-package","-pak","-cook","-compressed",f"-configuration={config}","-archive", f"-archivedirectory={platform_folder}"  ],shell=True)
+            cmdline = [f"{args.ue_path}\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
+                            "-build","-stage","-package","-pak","-cook","-compressed",f"-configuration={config}","-archive", f"-archivedirectory={platform_folder}"  ]
+            if args.sanitizer:
+                cmdline.append({"asan":"-EnableASan","ubsan":"-EnableUBSan","tsan":"-EnableTSan"}[args.sanitizer])
+            subprocess.check_call(cmdline,shell=True)
             # if the build is to a subfolder of the target folder (e.g. Android / Android_ASTC etc.) then move that up one
             if (platform_folder / "Android").exists():
                 for x in (platform_folder / "Android").iterdir():
