@@ -112,6 +112,9 @@ args = parser.parse_args()
 
 project_folder = Path(__file__).parent
 
+project_short_name = project_folder.name
+
+
 project_file = list(project_folder.glob("*.uproject"))[0]
 defaultengine_file = (project_folder / "Config/DefaultEngine.ini")
 if args.command=="build" and args.development:
@@ -206,7 +209,7 @@ def command_build(args):
                     log_name=args.logname
                 else:
                     now=datetime.now()
-                    log_name=now.strftime("directvideo-%Y_%m_%d-%H_%M_%S.txt")
+                    log_name=now.strftime(f"{project_short_name}-%Y_%m_%d-%H_%M_%S.txt")
                 print(f"Grabbing log to {log_name}. Press ctrl+c to exit")
                 subprocess.check_call(["adb","logcat",">",str(log_name)],shell=True,cwd=str(project_folder))
                 
