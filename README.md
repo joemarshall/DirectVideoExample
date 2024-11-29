@@ -9,3 +9,13 @@ To build this project, either load the project in Unreal and you can build it (d
 [See more about the plugin here](https://joemarshall.github.io/directvideo/)
 
 [Buy the plugin here](https://www.fab.com/listings/3259a389-1214-4312-a6aa-14fc8012ce7b)
+
+
+# HowTo: Make a logfile dump
+
+If you are having problems with the plugin, the included `make_releases.py` script can be used to build, run and capture the logs. Call it like this:
+
+```
+python make_releases.py build --development --grablog android  
+```
+(replace android with the device you are using, e.g. quest, pico - call `python make_releases.py build -h` for a list of supported VR devices, and other possible options).
