@@ -91,7 +91,9 @@ parser = argparse.ArgumentParser(
                     )
 
 subparsers = parser.add_subparsers(help='Command to run',required=True,dest="command")
-
+parser_launch = subparsers.add_parser('launch', help='Launch the uproject in Unreal Editor')
+parser_launch.add_argument('engine_version', help='Version of editor to run')
+parser_launch.add_argument("--ue-path","-ue",default="d:\\epic\\",help="Path to folder containng Unreal Engine versions",type=Path)
 parser_build = subparsers.add_parser('build', help='Build the example')
 parser_build.add_argument("--ue-path","-ue",default="d:\\epic\\UE_5.3\\",help="Path to Unreal Engine")
 parser_build.add_argument("device",nargs="+",help="One or more devices to build for, or 'all' to build everything.",choices = [x.flavour_name for x in BUILD_FLAVOURS]+["all"])
@@ -122,7 +124,24 @@ if args.command=="build" and args.development:
 else:
     release_folder = Path(__file__).parent / "Releases"
 
-
+def command_launch(args):
+    ue_base_path = args.ue_path
+    if re.match(r"UE_\d+\.\d+",ue_base_path.name):
+        # path to a single engine, get parent path to choose version
+        ue_base_path = ue_base_path.parent
+    version=args.engine_version
+    version_groups = re.match(r"(\d+)\.(\d+)(.(\d+))*",version)
+    editor_path = None
+    if version_groups:
+        maj= version_groups.group(1)
+        min=version_groups.group(2)
+        editor_path = ue_base_path / f"UE_{maj}.{min}" / "Engine" / "Binaries" / "Win64" / "UnrealEditor.exe"
+    if editor_path and editor_path.exists():
+        subprocess.Popen([editor_path,project_file])
+    else:
+        print(f"Bad engine version number {args.engine_version}:{editor_path}")
+        sys.exit(-1)
+    
 def command_build(args):
     use_validation_layer=False
     if args.development:
