@@ -57,12 +57,16 @@ class BuildFlavour:
     flavour_name: str
     plugin_name : str
     engine_keys: dict|None = None
+    engine_version_override: str|None = None
     
     def update_uproject(self,project_dict:dict,enabled:bool):
+        found_plugin=False
         for plugin_info in project_dict["Plugins"]:
             name = plugin_info["Name"]
             if name == self.plugin_name:
+                found_plugin=True
                 plugin_info["Enabled"]=enabled
+        return found_plugin
 
     def update_defaultengine(self,config_ini:UnrealIni,enabled:bool):    
         if self.engine_keys!=None:
@@ -73,11 +77,16 @@ class BuildFlavour:
     
 
 BUILD_FLAVOURS = [
-    BuildFlavour("pico","PICOXR"),
-    BuildFlavour("vivefocus","ViveOpenXR"),
+    BuildFlavour("pico","PICOOpenXR",[
+        (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","MinSDKVersion"),lambda enabled,current:r'29' if enabled else current),
+        (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","TargetSDKVersion"),lambda enabled,current:r'29' if enabled else current),
+    ]),
+    BuildFlavour("vivefocus","ViveOpenXR",engine_version_override="5.3"),
     BuildFlavour("quest","OculusXR",[
         (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","bPackageForMetaQuest"),lambda enabled,current:str(enabled)),
         (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","ExtraApplicationSettings"),lambda enabled,current:r'<meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2|questpro" />' if enabled else ""),
+        (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","MinSDKVersion"),lambda enabled,current:r'32' if enabled else current),
+        (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","TargetSDKVersion"),lambda enabled,current:r'32' if enabled else current),
         ]),
 BuildFlavour("android","")
 ]
@@ -95,7 +104,8 @@ parser_launch = subparsers.add_parser('launch', help='Launch the uproject in Unr
 parser_launch.add_argument('engine_version', help='Version of editor to run')
 parser_launch.add_argument("--ue-path","-ue",default="d:\\epic\\",help="Path to folder containng Unreal Engine versions",type=Path)
 parser_build = subparsers.add_parser('build', help='Build the example')
-parser_build.add_argument("--ue-path","-ue",default="d:\\epic\\UE_5.3\\",help="Path to Unreal Engine")
+parser_build.add_argument("--ue-path","-ue",default="d:\\epic\\",help="Path to Unreal Engine builds")
+parser_build.add_argument("--engine-version",default="5.5",help="Version of engine to use",type=str)
 parser_build.add_argument("device",nargs="+",help="One or more devices to build for, or 'all' to build everything.",choices = [x.flavour_name for x in BUILD_FLAVOURS]+["all"])
 parser_build.add_argument("--development","-d",help="make development build",action="store_true")
 parser_build.add_argument("--install","-i",help="install to device after build",action="store_true")
@@ -178,8 +188,15 @@ def command_build(args):
         for current_flavour in enabled_build_plugins:
             for all_flavour in BUILD_FLAVOURS:
                 enabled = all_flavour.flavour_name == current_flavour.flavour_name
-                all_flavour.update_uproject(uproject_data,enabled)
+                plugin_found = all_flavour.update_uproject(uproject_data,enabled)
+                if not plugin_found and enabled:
+                    print(f"Plugin {all_flavour.plugin_name} not found in uproject file")
+                    sys.exit(-1)
                 all_flavour.update_defaultengine(defaultengine_data,enabled)
+            if current_flavour.engine_version_override is None:
+                engine_path = Path(args.ue_path) / f"UE_{args.engine_version}" 
+            else:
+                engine_path = Path(args.ue_path) / f"UE_{current_flavour.engine_version_override}" 
 
             # do vulkan validation in dev builds (or if --validation is on)
             for plugin_info in uproject_data["Plugins"]:
@@ -189,6 +206,13 @@ def command_build(args):
 
             project_file.write_text(json.dumps(uproject_data,indent=4))
             defaultengine_file.write_text(defaultengine_data.reconstruct())
+
+            intermediate_source_folder = Path("Intermediate\\Source")
+            # remove the intermediate source folder so that it is rebuilt
+            # because it has autogen project source files which are engine version dependent
+            if (project_folder / intermediate_source_folder).exists():
+                shutil.rmtree(project_folder / intermediate_source_folder,ignore_errors=True)
+            
 
             platform_folder = release_folder / current_flavour.flavour_name
             print(f"Building for {current_flavour.flavour_name} in {platform_folder}")
@@ -200,7 +224,7 @@ def command_build(args):
             else:
                 config="Shipping"
                 
-            cmdline = [f"{args.ue_path}\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
+            cmdline = [f"{str(engine_path)}\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
                             "-build","-stage","-package","-pak","-cook","-compressed",f"-configuration={config}","-archive", f"-archivedirectory={platform_folder}"  ]
             if args.sanitizer:
                 cmdline.append({"asan":"-EnableASan","ubsan":"-EnableUBSan","tsan":"-EnableTSan"}[args.sanitizer])
