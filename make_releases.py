@@ -12,15 +12,19 @@ from dataclasses import dataclass
 
 class UnrealIni:
     def __init__(self,content:str):
+        commentmatch = re.compile(r";(.*)")
         subsectionmatch = re.compile(r"\[(.*)\]")
         valuematch = re.compile(r"([^=]*)=(.*)")
         subsections=[]
         cur_section=[]
         cur_section_name=[]
         for line in content.splitlines():
+            m_comment = commentmatch.match(line)
             m1 = subsectionmatch.match(line)
             m2 = valuematch.match(line)
-            if m1 is not None:
+            if m_comment is not None:
+                subsections.append((None,m_comment.group(1)))
+            elif m1 is not None:
                 if len(cur_section)>0:
                     subsections.append((cur_section_name,cur_section))
                 cur_section_name = m1.group(1)
@@ -35,10 +39,13 @@ class UnrealIni:
     def reconstruct(self):
         reconstructed = ""
         for name,values in self.subsections:
-            reconstructed+="["+name+"]\n"
-            for k,v in values:
-                reconstructed+=f"{k}={v}\n"
-            reconstructed+="\n"
+            if name is None:
+                reconstructed+=";"+values+"\n"
+            else:
+                reconstructed+="["+name+"]\n"
+                for k,v in values:
+                    reconstructed+=f"{k}={v}\n"
+                reconstructed+="\n"
         return reconstructed
         
     def update_value(self,enabled,value,modifier):
@@ -60,6 +67,8 @@ class BuildFlavour:
     engine_version_override: str|None = None
     
     def update_uproject(self,project_dict:dict,enabled:bool):
+        if not self.plugin_name:
+            return True
         found_plugin=False
         for plugin_info in project_dict["Plugins"]:
             name = plugin_info["Name"]
@@ -71,6 +80,7 @@ class BuildFlavour:
     def update_defaultengine(self,config_ini:UnrealIni,enabled:bool):    
         if self.engine_keys!=None:
             for val,modifier in self.engine_keys:
+                print(val,modifier)
                 config_ini.update_value(enabled,val,modifier)
         return config_ini.reconstruct()
     
@@ -80,6 +90,7 @@ BUILD_FLAVOURS = [
     BuildFlavour("pico","PICOOpenXR",[
         (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","MinSDKVersion"),lambda enabled,current:r'29' if enabled else current),
         (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","TargetSDKVersion"),lambda enabled,current:r'29' if enabled else current),
+        (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","ExtraActivitySettings"),lambda enabled,current:r'<meta-data android:name="pvr.app.type" android:value="vr" />' if enabled else current.replace('<meta-data android:name="pvr.app.type" android:value="vr" />',''))
     ]),
     BuildFlavour("vivefocus","ViveOpenXR",engine_version_override="5.3"),
     BuildFlavour("quest","OculusXR",[
@@ -88,7 +99,7 @@ BUILD_FLAVOURS = [
         (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","MinSDKVersion"),lambda enabled,current:r'32' if enabled else current),
         (("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings","TargetSDKVersion"),lambda enabled,current:r'32' if enabled else current),
         ]),
-BuildFlavour("android","")
+BuildFlavour("android","XRBase")
 ]
 
 
