@@ -236,7 +236,7 @@ def command_build(args):
                 config="Shipping"
                 
             cmdline = [f"{str(engine_path)}\\Engine\\Build\\BatchFiles\\RunUAT.bat","buildcookrun",f"-project={str(project_file)}","-platform=android",
-                            "-build","-stage","-package","-pak","-cook","-compressed",f"-configuration={config}","-archive", f"-archivedirectory={platform_folder}"  ]
+                            "-gather","-build","-stage","-skipbuildeditor","-nocompileeditor","-package","-pak","-cook","-compressed",f"-configuration={config}","-archive", f"-archivedirectory={platform_folder}"  ]
             if args.sanitizer:
                 cmdline.append({"asan":"-EnableASan","ubsan":"-EnableUBSan","tsan":"-EnableTSan"}[args.sanitizer])
             subprocess.check_call(cmdline,shell=True)
