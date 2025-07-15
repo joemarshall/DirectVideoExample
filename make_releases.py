@@ -194,13 +194,13 @@ parser_launch.add_argument("engine_version", help="Version of editor to run")
 parser_launch.add_argument(
     "--ue-path",
     "-ue",
-    default="d:\\epic\\",
+    default="c:\\epic\\",
     help="Path to folder containng Unreal Engine versions",
     type=Path,
 )
 parser_build = subparsers.add_parser("build", help="Build the example")
 parser_build.add_argument(
-    "--ue-path", "-ue", default="d:\\epic\\", help="Path to Unreal Engine builds"
+    "--ue-path", "-ue", default="c:\\epic\\", help="Path to Unreal Engine builds"
 )
 parser_build.add_argument(
     "--engine-version", default="5.5", help="Version of engine to use", type=str
