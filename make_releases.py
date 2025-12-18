@@ -13,6 +13,10 @@ import os
 from dataclasses import dataclass
 
 
+NDK_VERSIONS = [((0,0),(5,5),"25.1.8937393")
+                ,((5,6),(9,9),"27.2.12479018")]
+
+
 class UnrealIni:
     def __init__(self, content: str):
         commentmatch = re.compile(r";(.*)")
@@ -354,11 +358,27 @@ def command_build(args):
                     sys.exit(-1)
                 all_flavour.update_defaultengine(defaultengine_data, enabled)
             if current_flavour.engine_version_override is None:
-                engine_path = Path(args.ue_path) / f"UE_{args.engine_version}"
+                cur_version = args.engine_version
             else:
-                engine_path = (
-                    Path(args.ue_path) / f"UE_{current_flavour.engine_version_override}"
-                )
+                cur_version = current_flavour.engine_version_override
+            engine_path = (
+                Path(args.ue_path) / f"UE_{cur_version}"
+            )
+
+            version_int = tuple(map(int, cur_version.split(".")))
+            ndk_version = "25.2.9519653"  # default to ndk version 25.2
+            for x in NDK_VERSIONS:
+                if version_int >= x[0] and version_int<= x[1]:
+                    ndk_version = x[2]
+                    break
+
+            ndkroot = Path(os.environ.get("NDK_ROOT", "c:\\Android\\ndk"))
+            if ndkroot.stem != "ndk":
+                ndkroot = ndkroot.parent
+            print("Using NDK root",ndkroot / ndk_version)
+            os.environ["NDK_ROOT"] = str(ndkroot/ndk_version)
+            os.environ["NDKROOT"] = str(ndkroot/ndk_version)
+
 
             # set derived data cache path to be different for each build flavour
             # because e.g. quest, pico, and android versions of cached assets are incompatible
@@ -416,6 +436,7 @@ def command_build(args):
                     "-package",
                     "-pak",
                     "-cook",
+                    "-NoMutex",
                     "-compressed",
                     f"-configuration={config}",
                     "-archive",
